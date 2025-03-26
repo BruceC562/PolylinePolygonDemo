@@ -1,6 +1,5 @@
 package com.example.polylinedemo
 
-import android.graphics.Paint
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -13,9 +12,7 @@ import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -27,7 +24,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -46,11 +42,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.polylinedemo.ui.theme.PolylineDemoTheme
@@ -217,6 +211,13 @@ fun PolylineDemo(modifier: Modifier = Modifier) {
         LatLng(37.52946, -92.083)
     )
     val polylineCenter = LatLng(37.52876, -92.10781)
+    val trailInfo = listOf(
+        "Big Piney Trail",
+        "Location: Paddy Creek Wilderness in Roby, Missouri",
+        "Length: 16.1 miles",
+        "Difficulty: Hard",
+        "Estimated time: 6h 31m"
+    )
 
     //List of points for Mark Twain National Forest
     val polygonPoints = listOf(
@@ -233,6 +234,12 @@ fun PolylineDemo(modifier: Modifier = Modifier) {
         LatLng(38.001255, -91.258297)
     )
     val polygonCenter = LatLng(37.659734, -91.056658)
+    val forestInfo = listOf(
+        "Mark Twain National Forest",
+        "Location: Rolla, Missouri",
+        "Area: 1,491,840 acres",
+        "Established: September 23, 1939"
+    )
 
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(polygonCenter, 9f) // Center on the US
@@ -244,7 +251,8 @@ fun PolylineDemo(modifier: Modifier = Modifier) {
     var polygonWidth by remember { mutableFloatStateOf(5f) }
     val optionList = listOf(polylineColor, polylineWidth, polygonColor, polygonWidth)
 
-    var showOptions by remember { mutableStateOf(false) }
+    var showSheet by remember { mutableStateOf(false) }
+    var sheetName by remember { mutableStateOf("") }
     val sheetState = rememberModalBottomSheetState()
 
     Column(
@@ -275,21 +283,29 @@ fun PolylineDemo(modifier: Modifier = Modifier) {
                     color = polylineColor,
                     width = polylineWidth,
                     clickable = true,
-                    onClick = { }
+                    onClick = {
+                        showSheet = true
+                        sheetName = "trailInfo"
+                    }
                 )
                 Polygon(
                     points = polygonPoints,
                     fillColor = polygonColor.copy(alpha = .3f),
                     strokeWidth = polygonWidth,
                     clickable = true,
-                    onClick = { }
+                    onClick = {
+                        showSheet = true
+                        sheetName = "forestInfo"
+                    }
                 )
-
             }
             FloatingActionButton(
                 modifier = modifier.padding(10.dp).align(Alignment.TopEnd).size(75.dp),
-                onClick = { showOptions = true }
-            ) { Icon(Icons.Default.Settings, contentDescription = "Map Options") }
+                onClick = {
+                    showSheet = true
+                    sheetName = "options"
+                }
+            ) { Icon(Icons.Default.Settings, contentDescription = "Map Options", modifier = modifier.size(50.dp)) }
             FloatingActionButton(
                 modifier = modifier.padding(10.dp).align(Alignment.TopStart).size(75.dp),
                 onClick = { cameraPositionState.position = CameraPosition.fromLatLngZoom(polylineCenter, 13f) }
@@ -302,16 +318,66 @@ fun PolylineDemo(modifier: Modifier = Modifier) {
     }
 
     //Brings up the bottom modal sheet where the user can change the options
-    if (showOptions) {
-        MapOptions(
-            modifier,
-            sheetState,
-            optionList,
-            onDismiss = { showOptions = false },
-            onPolylineColorChange = { polylineColor = it },
-            onPolylineWidthChange = { polylineWidth = it },
-            onPolygonColorChange = { polygonColor = it },
-            onPolygonWidthChange = { polygonWidth = it })
+    if (showSheet) {
+        when (sheetName) {
+            "options" ->
+                MapOptions(
+                modifier,
+                sheetState,
+                optionList,
+                onDismiss = { showSheet = false },
+                onPolylineColorChange = { polylineColor = it },
+                onPolylineWidthChange = { polylineWidth = it },
+                onPolygonColorChange = { polygonColor = it },
+                onPolygonWidthChange = { polygonWidth = it })
+            "trailInfo" ->
+                DisplayInfo(
+                    modifier,
+                    sheetState,
+                    trailInfo,
+                    onDismiss = { showSheet = false }
+                )
+            "forestInfo" ->
+                DisplayInfo(
+                    modifier,
+                    sheetState,
+                    forestInfo,
+                    onDismiss = { showSheet = false }
+                )
+        }
+
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DisplayInfo(modifier: Modifier = Modifier, sheetState: SheetState, details: List<String>, onDismiss: () -> Unit) {
+    ModalBottomSheet(
+        onDismissRequest = { onDismiss() },
+        sheetState = sheetState,
+    ) {
+        Column(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp)
+                .scrollable(enabled = true, state = rememberScrollState(), orientation = Orientation.Vertical)
+        ) {
+            details.firstOrNull()?.let { title ->
+                Text(
+                    text = title,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = modifier.padding(bottom = 5.dp)
+                )
+            }
+
+            details.drop(1).forEach { detail ->
+                Text(
+                    text = detail,
+                    fontSize = 16.sp,
+                )
+            }
+        }
     }
 }
 
@@ -427,12 +493,4 @@ fun WidthOptions(modifier: Modifier = Modifier, selectedWidth: Float = 1f, onWid
         }
     }
 
-}
-
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    PolylineDemoTheme {
-    }
 }
